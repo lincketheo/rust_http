@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 use std::fmt;
 use std::io::{BufRead, BufReader, Read};
-use strum::IntoEnumIterator;
-use strum_macros::EnumIter;
 
-/// A host is a combination of hostname and port.
-/// Example localhost:8080. A host is _not_ a protocol (https://localhost:8080 is not a host)
 #[derive(Clone, Debug)]
 pub struct Host {
     pub hostname: String,
@@ -18,7 +14,6 @@ impl fmt::Display for Host {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/rfc2616#section-5.1.1
 #[derive(Debug)]
 pub enum Method {
     OPTION,
@@ -46,7 +41,6 @@ impl fmt::Display for Method {
     }
 }
 
-/// https://datatracker.ietf.org/doc/html/rfc2616#section-5.1
 #[derive(Debug)]
 pub struct RequestLine {
     pub method: Method,
@@ -65,12 +59,6 @@ impl fmt::Display for RequestLine {
     }
 }
 
-/// There are some set header types with specific data types
-/// but to support more than the standards, [others] is also included
-/// https://datatracker.ietf.org/doc/html/rfc2616#section-5.3
-/// This enum is used for compile time checking for various functions to check
-/// all possible headers.
-#[derive(EnumIter)]
 pub enum RequestHeader {
     Accept,
     AcceptCharset,
@@ -93,45 +81,116 @@ pub enum RequestHeader {
     UserAgent,
 }
 
-#[derive(EnumIter)]
-pub enum GeneralHeader {
-    CacheControl,
-    Connection,
-    Date,
-    Pragma,
-    Trailer,
-    TransferEncoding,
-    Upgrade,
-    Via,
-    Warning,
+#[derive(Debug)]
+pub struct RequestHeaders {
+    accept: Option<String>,
+    accept_charset: Option<String>,
+    accept_encoding: Option<String>,
+    accept_language: Option<String>,
+    authorization: Option<String>,
+    expect: Option<String>,
+    from: Option<String>,
+    host: Option<Host>,
+    if_match: Option<String>,
+    if_modified_since: Option<String>,
+    if_none_match: Option<String>,
+    if_range: Option<String>,
+    if_unmodified_since: Option<String>,
+    max_forwards: Option<String>,
+    proxy_authorization: Option<String>,
+    range: Option<String>,
+    referer: Option<String>,
+    te: Option<String>,
+    user_agent: Option<String>,
 }
 
-#[derive(EnumIter)]
-pub enum EntityHeader {
-    Allow,
-    ContentEncoding,
-    ContentLanguages,
-    ContentLength,
-    ContentLocation,
-    ContentMD5,
-    ContentRange,
-    ContentType,
-    Expires,
-    LastModified,
-    Extension(String),
-}
+impl RequestHeaders {
+    pub fn new() -> Self {
+        Self {
+            accept: None,
+            accept_charset: None,
+            accept_encoding: None,
+            accept_language: None,
+            authorization: None,
+            expect: None,
+            from: None,
+            host: None,
+            if_match: None,
+            if_modified_since: None,
+            if_none_match: None,
+            if_range: None,
+            if_unmodified_since: None,
+            max_forwards: None,
+            proxy_authorization: None,
+            range: None,
+            referer: None,
+            te: None,
+            user_agent: None,
+        }
+    }
 
-#[derive(EnumIter)]
-pub enum ResponseHeader {
-    AcceptRanges,
-    Age,
-    ETag,
-    Location,
-    ProxyAuthenticate,
-    RetryAfter,
-    Server,
-    Vary,
-    WWWAuthenticate,
+    pub fn insert(&mut self, key: RequestHeader, value: &str) -> Result<(), String> {
+        match key {
+            RequestHeader::Accept => {
+                self.accept = Some(value.to_string());
+            }
+            RequestHeader::AcceptCharset => {
+                self.accept_charset = Some(value.to_string());
+            }
+            RequestHeader::AcceptEncoding => {
+                self.accept_encoding = Some(value.to_string());
+            }
+            RequestHeader::AcceptLanguage => {
+                self.accept_language = Some(value.to_string());
+            }
+            RequestHeader::Authorization => {
+                self.authorization = Some(value.to_string());
+            }
+            RequestHeader::Expect => {
+                self.expect = Some(value.to_string());
+            }
+            RequestHeader::From => {
+                self.from = Some(value.to_string());
+            }
+            RequestHeader::Host => {
+                self.host = Some(parse_host_from_wire(value)?);
+            }
+            RequestHeader::IfMatch => {
+                self.if_match = Some(value.to_string());
+            }
+            RequestHeader::IfModifiedSince => {
+                self.if_modified_since = Some(value.to_string());
+            }
+            RequestHeader::IfNoneMatch => {
+                self.if_none_match = Some(value.to_string());
+            }
+            RequestHeader::IfRange => {
+                self.if_range = Some(value.to_string());
+            }
+            RequestHeader::IfUnmodifiedSince => {
+                self.if_unmodified_since = Some(value.to_string());
+            }
+            RequestHeader::MaxForwards => {
+                self.max_forwards = Some(value.to_string());
+            }
+            RequestHeader::ProxyAuthorization => {
+                self.proxy_authorization = Some(value.to_string());
+            }
+            RequestHeader::Range => {
+                self.range = Some(value.to_string());
+            }
+            RequestHeader::Referer => {
+                self.referer = Some(value.to_string());
+            }
+            RequestHeader::TE => {
+                self.te = Some(value.to_string());
+            }
+            RequestHeader::UserAgent => {
+                self.user_agent = Some(value.to_string());
+            }
+        }
+        Ok(())
+    }
 }
 
 impl RequestHeader {
@@ -185,6 +244,80 @@ impl RequestHeader {
     }
 }
 
+pub enum GeneralHeader {
+    CacheControl,
+    Connection,
+    Date,
+    Pragma,
+    Trailer,
+    TransferEncoding,
+    Upgrade,
+    Via,
+    Warning,
+}
+
+#[derive(Debug)]
+pub struct GeneralHeaders {
+    cache_control: Option<String>,
+    connection: Option<String>,
+    date: Option<String>,
+    pragma: Option<String>,
+    trailer: Option<String>,
+    transfer_encoding: Option<String>,
+    upgrade: Option<String>,
+    via: Option<String>,
+    warning: Option<String>,
+}
+
+impl GeneralHeaders {
+    pub fn new() -> Self {
+        Self {
+            cache_control: None,
+            connection: None,
+            date: None,
+            pragma: None,
+            trailer: None,
+            transfer_encoding: None,
+            upgrade: None,
+            via: None,
+            warning: None,
+        }
+    }
+
+    pub fn insert(&mut self, key: GeneralHeader, value: &str) -> Result<(), String> {
+        match key {
+            GeneralHeader::CacheControl => {
+                self.cache_control = Some(value.to_string());
+            }
+            GeneralHeader::Connection => {
+                self.connection = Some(value.to_string());
+            }
+            GeneralHeader::Date => {
+                self.date = Some(value.to_string());
+            }
+            GeneralHeader::Pragma => {
+                self.pragma = Some(value.to_string());
+            }
+            GeneralHeader::Trailer => {
+                self.trailer = Some(value.to_string());
+            }
+            GeneralHeader::TransferEncoding => {
+                self.transfer_encoding = Some(value.to_string());
+            }
+            GeneralHeader::Upgrade => {
+                self.upgrade = Some(value.to_string());
+            }
+            GeneralHeader::Via => {
+                self.via = Some(value.to_string());
+            }
+            GeneralHeader::Warning => {
+                self.warning = Some(value.to_string());
+            }
+        }
+        Ok(())
+    }
+}
+
 impl GeneralHeader {
     fn value(&self) -> &'static str {
         match self {
@@ -213,6 +346,92 @@ impl GeneralHeader {
             "Warning" => GeneralHeader::Warning,
             _ => return None,
         })
+    }
+}
+
+pub enum EntityHeader {
+    Allow,
+    ContentEncoding,
+    ContentLanguages,
+    ContentLength,
+    ContentLocation,
+    ContentMD5,
+    ContentRange,
+    ContentType,
+    Expires,
+    LastModified,
+    Extension(String),
+}
+
+#[derive(Debug)]
+pub struct EntityHeaders {
+    allow: Option<String>,
+    content_encoding: Option<String>,
+    content_languages: Option<String>,
+    content_length: Option<usize>,
+    content_location: Option<String>,
+    content_md5: Option<String>,
+    content_range: Option<String>,
+    content_type: Option<String>,
+    expires: Option<String>,
+    last_modified: Option<String>,
+    extensions: HashMap<String, String>,
+}
+
+impl EntityHeaders {
+    pub fn new() -> Self {
+        Self {
+            allow: None,
+            content_encoding: None,
+            content_languages: None,
+            content_length: None,
+            content_location: None,
+            content_md5: None,
+            content_range: None,
+            content_type: None,
+            expires: None,
+            last_modified: None,
+            extensions: HashMap::new(),
+        }
+    }
+
+    pub fn insert(&mut self, key: EntityHeader, value: &str) -> Result<(), String> {
+        match key {
+            EntityHeader::Allow => {
+                self.allow = Some(value.to_string());
+            }
+            EntityHeader::ContentEncoding => {
+                self.content_encoding = Some(value.to_string());
+            }
+            EntityHeader::ContentLanguages => {
+                self.content_languages = Some(value.to_string());
+            }
+            EntityHeader::ContentLength => {
+                self.content_length = Some(value.parse::<usize>().map_err(|it| it.to_string())?);
+            }
+            EntityHeader::ContentLocation => {
+                self.content_location = Some(value.to_string());
+            }
+            EntityHeader::ContentMD5 => {
+                self.content_md5 = Some(value.to_string());
+            }
+            EntityHeader::ContentRange => {
+                self.content_range = Some(value.to_string());
+            }
+            EntityHeader::ContentType => {
+                self.content_type = Some(value.to_string());
+            }
+            EntityHeader::Expires => {
+                self.expires = Some(value.to_string());
+            }
+            EntityHeader::LastModified => {
+                self.last_modified = Some(value.to_string());
+            }
+            EntityHeader::Extension(s) => {
+                self.extensions.insert(s, value.to_string());
+            }
+        }
+        Ok(())
     }
 }
 
@@ -250,6 +469,80 @@ impl EntityHeader {
     }
 }
 
+pub enum ResponseHeader {
+    AcceptRanges,
+    Age,
+    ETag,
+    Location,
+    ProxyAuthenticate,
+    RetryAfter,
+    Server,
+    Vary,
+    WWWAuthenticate,
+}
+
+#[derive(Debug)]
+pub struct ResponseHeaders {
+    accept_ranges: Option<String>,
+    age: Option<String>,
+    etag: Option<String>,
+    location: Option<String>,
+    proxy_authenticate: Option<String>,
+    retry_after: Option<String>,
+    server: Option<String>,
+    vary: Option<String>,
+    www_authenticate: Option<String>,
+}
+
+impl ResponseHeaders {
+    pub fn new() -> Self {
+        Self {
+            accept_ranges: None,
+            age: None,
+            etag: None,
+            location: None,
+            proxy_authenticate: None,
+            retry_after: None,
+            server: None,
+            vary: None,
+            www_authenticate: None,
+        }
+    }
+
+    pub fn insert(&mut self, key: ResponseHeader, value: &str) -> Result<(), String> {
+        match key {
+            ResponseHeader::AcceptRanges => {
+                self.accept_ranges = Some(value.to_string());
+            }
+            ResponseHeader::Age => {
+                self.age = Some(value.to_string());
+            }
+            ResponseHeader::ETag => {
+                self.etag = Some(value.to_string());
+            }
+            ResponseHeader::Location => {
+                self.location = Some(value.to_string());
+            }
+            ResponseHeader::ProxyAuthenticate => {
+                self.proxy_authenticate = Some(value.to_string());
+            }
+            ResponseHeader::RetryAfter => {
+                self.retry_after = Some(value.to_string());
+            }
+            ResponseHeader::Server => {
+                self.server = Some(value.to_string());
+            }
+            ResponseHeader::Vary => {
+                self.vary = Some(value.to_string());
+            }
+            ResponseHeader::WWWAuthenticate => {
+                self.www_authenticate = Some(value.to_string());
+            }
+        }
+        Ok(())
+    }
+}
+
 impl ResponseHeader {
     fn value(&self) -> &'static str {
         match self {
@@ -282,220 +575,12 @@ impl ResponseHeader {
 }
 
 #[derive(Debug)]
-pub struct RequestHeaders {
-    accept: Option<String>,
-    accept_charset: Option<String>,
-    accept_encoding: Option<String>,
-    accept_language: Option<String>,
-    authorization: Option<String>,
-    expect: Option<String>,
-    from: Option<String>,
-    host: Option<Host>,
-    if_match: Option<String>,
-    if_modified_since: Option<String>,
-    if_none_match: Option<String>,
-    if_range: Option<String>,
-    if_unmodified_since: Option<String>,
-    max_forwards: Option<String>,
-    proxy_authorization: Option<String>,
-    range: Option<String>,
-    referer: Option<String>,
-    te: Option<String>,
-    user_agent: Option<String>,
-}
-
-#[derive(Debug)]
-pub struct GeneralHeaders {
-    cache_control: Option<String>,
-    connection: Option<String>,
-    date: Option<String>,
-    pragma: Option<String>,
-    trailer: Option<String>,
-    transfer_encoding: Option<String>,
-    upgrade: Option<String>,
-    via: Option<String>,
-    warning: Option<String>,
-}
-
-#[derive(Debug)]
-pub struct EntityHeaders {
-    allow: Option<String>,
-    content_encoding: Option<String>,
-    content_languages: Option<String>,
-    content_length: Option<String>,
-    content_location: Option<String>,
-    content_md5: Option<String>,
-    content_range: Option<String>,
-    content_type: Option<String>,
-    expires: Option<String>,
-    last_modified: Option<String>,
-    extensions: HashMap<String, String>,
-}
-
-#[derive(Debug)]
-pub struct ResponseHeaders {
-    accept_ranges: Option<String>,
-    age: Option<String>,
-    etag: Option<String>,
-    location: Option<String>,
-    proxy_authenticate: Option<String>,
-    retry_after: Option<String>,
-    server: Option<String>,
-    vary: Option<String>,
-    www_authenticate: Option<String>,
-}
-
-impl RequestHeaders {
-    pub fn new() -> Self {
-        Self {
-            accept: None,
-            accept_charset: None,
-            accept_encoding: None,
-            accept_language: None,
-            authorization: None,
-            expect: None,
-            from: None,
-            host: None,
-            if_match: None,
-            if_modified_since: None,
-            if_none_match: None,
-            if_range: None,
-            if_unmodified_since: None,
-            max_forwards: None,
-            proxy_authorization: None,
-            range: None,
-            referer: None,
-            te: None,
-            user_agent: None,
-        }
-    }
-
-    pub fn insert(&mut self, key: &str, value: &str) -> Result<(), String> {
-        if let Some(header) = RequestHeader::from(key) {
-            match header {
-                RequestHeader::Accept => {
-                    self.accept = Some(value.to_string());
-                }
-                RequestHeader::AcceptCharset => {
-                    self.accept_charset = Some(value.to_string());
-                }
-                RequestHeader::AcceptEncoding => {
-                    self.accept_encoding = Some(value.to_string());
-                }
-                RequestHeader::AcceptLanguage => {
-                    self.accept_language = Some(value.to_string());
-                }
-                RequestHeader::Authorization => {
-                    self.authorization = Some(value.to_string());
-                }
-                RequestHeader::Expect => {
-                    self.expect = Some(value.to_string());
-                }
-                RequestHeader::From => {
-                    self.from = Some(value.to_string());
-                }
-                RequestHeader::Host => {
-                    self.host = Some(parse_host_from_wire(value)?);
-                }
-                RequestHeader::IfMatch => {
-                    self.if_match = Some(value.to_string());
-                }
-                RequestHeader::IfModifiedSince => {
-                    self.if_modified_since = Some(value.to_string());
-                }
-                RequestHeader::IfNoneMatch => {
-                    self.if_none_match = Some(value.to_string());
-                }
-                RequestHeader::IfRange => {
-                    self.if_range = Some(value.to_string());
-                }
-                RequestHeader::IfUnmodifiedSince => {
-                    self.if_unmodified_since = Some(value.to_string());
-                }
-                RequestHeader::MaxForwards => {
-                    self.max_forwards = Some(value.to_string());
-                }
-                RequestHeader::ProxyAuthorization => {
-                    self.proxy_authorization = Some(value.to_string());
-                }
-                RequestHeader::Range => {
-                    self.range = Some(value.to_string());
-                }
-                RequestHeader::Referer => {
-                    self.referer = Some(value.to_string());
-                }
-                RequestHeader::TE => {
-                    self.te = Some(value.to_string());
-                }
-                RequestHeader::UserAgent => {
-                    self.user_agent = Some(value.to_string());
-                }
-            }
-        } else {
-            self.others.insert(key.to_string(), value.to_string());
-        }
-
-        Ok(())
-    }
-
-    pub fn string_value(&self, header: &RequestHeaderString) -> Option<String> {
-        match header {
-            RequestHeaderString::Host => self.host.clone().map(|h| h.to_string()),
-            RequestHeaderString::UserAgent => self.user_agent.clone(),
-            RequestHeaderString::Accept => self.accept.clone(),
-            RequestHeaderString::ContentType => self.content_type.clone(),
-            RequestHeaderString::ContentLength => {
-                self.content_length.clone().map(|h| h.to_string())
-            }
-        }
-    }
-
-    pub fn insert_from_full_string(&mut self, full_str: &str) -> Result<(), String> {
-        let parts: Vec<&str> = full_str.splitn(2, ":").collect();
-        if parts.len() != 2 {
-            return Err("Invalid header, expected a colon in header
-to deliminate key: value"
-                .to_string());
-        }
-        let key = parts[0].trim().to_string();
-        let value = parts[1].trim().to_string();
-
-        self.insert(&key, &value)?;
-
-        Ok(())
-    }
-}
-
-impl fmt::Display for RequestHeaders {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for header in RequestHeaderString::iter() {
-            if let Some(val) = self.string_value(&header) {
-                write!(f, "\n{}: {}", header.to_string(), val)?;
-            }
-        }
-        for (key, value) in self.others.iter() {
-            write!(f, "\n{}: {}", key, value)?;
-        }
-
-        Ok(())
-    }
-}
-
-#[derive(Debug)]
 pub struct HttpRequest {
     pub request_line: RequestLine,
-    pub headers: RequestHeaders,
+    pub request_headers: RequestHeaders,
+    pub general_headers: GeneralHeaders,
+    pub entity_headers: EntityHeaders,
     pub body: Option<String>,
-}
-
-impl fmt::Display for HttpRequest {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}\nRequestHeaders:{}", self.request_line, self.headers)?;
-        if let Some(body) = &self.body {
-            write!(f, "\nBody: {}", body)?;
-        }
-        Ok(())
-    }
 }
 
 fn parse_request_line_from_reader<R: Read>(
@@ -512,9 +597,14 @@ fn parse_request_line_from_reader<R: Read>(
     parse_request_line(&request_line)
 }
 
-fn parse_headers_from_reader<R: Read>(reader: &mut BufReader<R>) -> Result<RequestHeaders, String> {
+fn parse_headers_from_reader<R: Read>(
+    reader: &mut BufReader<R>,
+) -> Result<(RequestHeaders, GeneralHeaders, EntityHeaders), String> {
     // Parse the headers
-    let mut headers = RequestHeaders::new();
+    let mut request_headers = RequestHeaders::new();
+    let mut general_headers = GeneralHeaders::new();
+    let mut entity_headers = EntityHeaders::new();
+
     loop {
         let mut header = String::new();
         let _ = reader.read_line(&mut header).map_err(|e| e.to_string())?;
@@ -524,11 +614,27 @@ fn parse_headers_from_reader<R: Read>(reader: &mut BufReader<R>) -> Result<Reque
             break;
         }
 
-        dbg!(&header);
-        headers.insert_from_full_string(&header)?;
+        let values: Vec<_> = header.splitn(2, ":").collect();
+        dbg!(&values);
+
+        if values.len() != 2 {
+            return Err("Expecting 'key: value' in header".to_string());
+        }
+        let key = values[0];
+        let value = values[1].trim();
+
+        if let Some(rheader) = RequestHeader::from(key) {
+            request_headers.insert(rheader, value)?;
+        } else if let Some(gheader) = GeneralHeader::from(key) {
+            general_headers.insert(gheader, value)?;
+        } else if let Some(eheader) = EntityHeader::from(key) {
+            entity_headers.insert(eheader, value)?;
+        } else {
+            panic!("Entity header extension should catch unkown headers");
+        }
     }
 
-    Ok(headers)
+    Ok((request_headers, general_headers, entity_headers))
 }
 
 fn parse_body_from_reader<R: Read>(
@@ -547,9 +653,9 @@ fn parse_body_from_reader<R: Read>(
 pub fn parse_http_request<R: Read>(reader: &mut BufReader<R>) -> Result<HttpRequest, String> {
     let request_line = parse_request_line_from_reader(reader)?;
 
-    let headers = parse_headers_from_reader(reader)?;
+    let (request_headers, general_headers, entity_headers) = parse_headers_from_reader(reader)?;
 
-    let body = if let Some(content_length) = headers.content_length {
+    let body = if let Some(content_length) = entity_headers.content_length {
         Some(parse_body_from_reader(content_length, reader)?)
     } else {
         None
@@ -557,7 +663,9 @@ pub fn parse_http_request<R: Read>(reader: &mut BufReader<R>) -> Result<HttpRequ
 
     return Ok(HttpRequest {
         request_line,
-        headers,
+        request_headers,
+        general_headers,
+        entity_headers,
         body,
     });
 }
@@ -652,5 +760,3 @@ fn parse_method_from_wire(content: String) -> Result<Method, String> {
 fn is_valid_extension_method(content: &String) -> bool {
     content.chars().all(|c| c.is_ascii_alphabetic())
 }
-
-//////////////////////////////////////// Display and Debug

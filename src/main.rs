@@ -1,11 +1,9 @@
 mod parsing;
 mod models;
 
-use models::Host;
-use parsing::request_parser::parse_http_request;
-
 use std::io::BufReader;
 use std::net::{TcpListener, TcpStream};
+use models::{Host, parse_http_request};
 
 fn main() {
     let bind_addr = Host {
@@ -35,8 +33,8 @@ fn handle_connection(mut stream: TcpStream) {
     let mut buf_reader = BufReader::new(&mut stream);
 
     match parse_http_request(&mut buf_reader) {
-        Ok(data) => {
-            println!("{}", data);
+        Ok(http_request) => {
+            dbg!(http_request.request_line.method);
         }
         Err(msg) => {
             dbg!(msg);
